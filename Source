@@ -1,0 +1,197 @@
+-- Functions and ui library 
+
+local offset = Vector3.new(0, 0, 0) -- Adjusted offset vector to be behind the player
+
+local isFollowing = false
+local followInterval = 0.0001 -- Adjusted follow interval (0.1 seconds)
+local followTime = 5 -- Time to follow a player in seconds (default value)
+local lastFollowedPlayer = nil -- Variable to store the last followed player
+local autoTeleportEnabled = false -- Variable to track if auto teleport is enabled
+local teleportPosition = Vector3.new(-549.8675537109375, 21.698673248291016, -104.8664321899414) -- Destination position for teleportation
+local teleportDistanceThreshold = 10000 -- Distance threshold for teleportation
+local autoClickEnabled = false -- Variable to track if auto-click is enabled
+local autoJumpEnabled = false -- Variable to track if infinite jump is enabled
+local Library = loadstring(Game:HttpGet("https://raw.githubusercontent.com/bloodball/-back-ups-for-libs/main/wizard"))()
+local Window = Library:NewWindow("Project Smash")
+-- Function to stop following
+local function stopFollowing()
+    isFollowing = false
+end
+
+-- Function to rotate the character to face left (west)
+local function rotateCharacter()
+    local hrp = game.Players.LocalPlayer.Character.HumanoidRootPart
+    local direction = hrp.Position - hrp.CFrame.LookVector
+    local rotation = CFrame.new(hrp.Position, hrp.Position - Vector3.new(direction.Z, 0, -direction.X))
+    hrp.CFrame = rotation
+end
+
+-- Function to follow a character
+local function followCharacter(player)
+    local hrp = game.Players.LocalPlayer.Character.HumanoidRootPart
+    local humanoidRootPart = player.Character:FindFirstChild("HumanoidRootPart")
+    if humanoidRootPart and player ~= game.Players.LocalPlayer and humanoidRootPart.Position.Y <= 200 then -- Check if the player is not the local player and below Y level 200
+        local startTime = tick() -- Record the start time
+        while isFollowing and player.Character do -- Ensure player is still valid
+            hrp.CFrame = CFrame.new(humanoidRootPart.Position - offset) -- Adjusted to subtract the offset
+            rotateCharacter() -- Rotate character to face left (west)
+            wait(followInterval)
+            if tick() - startTime >= followTime then -- Check if it's been the specified time
+                break -- Stop following after the specified time
+            end
+        end
+    end
+end
+
+-- Function to follow a random player
+local function followRandomPlayer()
+    while true do
+        if isFollowing then
+            local players = game.Players:GetPlayers()
+            if #players > 0 then
+                local randomPlayer = players[math.random(1, #players)] -- Select a random player
+                if randomPlayer ~= game.Players.LocalPlayer and randomPlayer ~= lastFollowedPlayer and randomPlayer.Character and randomPlayer.Character:FindFirstChild("HumanoidRootPart") and randomPlayer.Character.HumanoidRootPart.Position.Y <= 200 then -- Check if it's not the local player, the last followed player, and below Y level 200
+                    lastFollowedPlayer = randomPlayer -- Update the last followed player
+                    followCharacter(randomPlayer) -- Start following the random player
+                end
+            end
+            wait(0.3) -- Wait before selecting another random player
+        else
+            wait(1) -- Wait if not following
+        end
+    end
+end
+
+-- Function to teleport the player if they go below a certain Y-axis threshold or are too far from the destination
+local function autoTeleport()
+    while autoTeleportEnabled do
+        local character = game.Players.LocalPlayer.Character
+        if character then
+            local hrp = character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local currentPos = hrp.Position
+                local distance = (currentPos - teleportPosition).Magnitude
+                if hrp.Position.Y < -25 or distance > teleportDistanceThreshold then
+                    hrp.CFrame = CFrame.new(teleportPosition)
+                end
+            end
+        end
+        wait(0.00001) -- Check every second
+    end
+end
+
+-- Function for auto-clicking
+local function autoClick()
+    while autoClickEnabled do
+        local args = {
+            [1] = true,
+            [2] = 1711675041.032419
+        }
+        game:GetService("ReplicatedStorage").Remotes.game.action.mouse1:FireServer(unpack(args))
+        wait(0.1) -- Adjust the delay as needed
+    end
+end
+
+-- Function to handle player's death
+local function handlePlayerDeath()
+    isFollowing = false
+    toggleButton:SetValue(false) -- Reset the Toggle Follow button
+    wait(3) -- Wait for 3 seconds before resuming following
+    isFollowing = true
+    followRandomPlayer()
+end
+
+-- Function to monitor player's health and re-execute the script when health drops to zero
+local function monitorHealth()
+    while true do
+        local character = game.Players.LocalPlayer.Character
+        if not character then
+            character = game.Players.LocalPlayer.CharacterAdded:Wait()
+        end
+        local humanoid = character:WaitForChild("Humanoid")
+        humanoid.HealthChanged:Wait() -- Wait for health change
+        if humanoid.Health <= 0 then -- Check if health drops to zero
+            handlePlayerDeath()
+        end
+    end
+end
+
+-- Starts
+local Section = Window:NewSection("Main")
+Section:CreateToggle("Tp Player (Auto Farm)", function(value)
+        if value then
+            isFollowing = true
+            followRandomPlayer()
+        else
+            stopFollowing()
+        end
+print(value)
+end)
+
+Section:CreateToggle("AntiFall", function(value)
+        autoTeleportEnabled = value
+        if value then
+            autoTeleport()
+        end
+print(value)
+end)
+
+Section:CreateToggle("AutoAttack", function(value)
+          autoClickEnabled = value
+        if value then
+            autoClick()
+        end
+print(value)
+end)
+
+Section:CreateButton("Speed", function()
+function isNumber(str) if tonumber(str) ~= nil or str == 'inf' then return true end end local tspeed = 1 local hb = game:GetService("RunService").Heartbeat local tpwalking = true local player = game:GetService("Players") local lplr = player.LocalPlayer local chr = lplr.Character local hum = chr and chr:FindFirstChildWhichIsA("Humanoid") while tpwalking and hb:Wait() and chr and hum and hum.Parent do if hum.MoveDirection.Magnitude > 0 then if tspeed and isNumber(tspeed) then chr:TranslateBy(hum.MoveDirection * tonumber(tspeed)) else chr:TranslateBy(hum.MoveDirection) end end end
+print("Clicked")
+end)
+
+-- Start monitoring player's health
+spawn(monitorHealth)
+
+-- Function for infinite jump
+local infiniteJumpLoop = nil -- Store the loop function to be able to stop it
+
+local function infiniteJump()
+    infiniteJumpLoop = coroutine.create(function()
+        while true do
+            if autoJumpEnabled then
+                local player = game.Players.LocalPlayer
+                local character = player.Character or player.CharacterAdded:Wait()
+                local humanoid = character:WaitForChild("Humanoid")
+                
+                -- Connect to the UserInputService's JumpRequest event
+                game:GetService("UserInputService").JumpRequest:Connect(function()
+                    -- Check if the player's character is in the air
+                    if humanoid:GetState() == Enum.HumanoidStateType.Physics or humanoid:GetState() == Enum.HumanoidStateType.Freefall then
+                        -- Change the state to jumping
+                        humanoid:ChangeState("Jumping")
+                    end
+                end)
+            else
+                break -- 
+            end
+            wait(0.1) -- 
+        end
+    end)
+    coroutine.resume(infiniteJumpLoop)
+end
+
+-- Function to stop the infinite jump loop
+local function stopInfiniteJump()
+    if infiniteJumpLoop then
+        coroutine.yield(infiniteJumpLoop)
+        infiniteJumpLoop = nil
+    end
+end
+
+Section:CreateButton("infjump", function()
+        autoJumpEnabled = true
+        infiniteJump()
+print("Clicked")
+end)
+
+local Section = Window:NewSection("YT: @SumitScriptsYT")
