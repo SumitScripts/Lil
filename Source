@@ -194,4 +194,9 @@ Section:CreateButton("infjump", function()
 print("Clicked")
 end)
 
+Section:CreateButton("hitbox", function()
+loadstring(game:httpget("https://pastebin.com/raw/peFsakEW"))()
+print("Clicked")
+end)
+
 local Section = Window:NewSection("YT: @SumitScriptsYT")
